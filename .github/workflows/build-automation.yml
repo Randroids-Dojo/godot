@@ -1,0 +1,37 @@
+# Build Godot automation branch using upstream workflows
+
+name: Build Godot Automation
+
+on:
+  push:
+    branches: [automation]
+  pull_request:
+    branches: [automation]
+  workflow_dispatch:
+  workflow_call:
+  schedule:
+    - cron: '0 4 * * 0'
+
+concurrency:
+  group: ${{ github.workflow }}|${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    name: Static Checks
+    uses: ./.github/workflows/static_checks.yml
+
+  linux-build:
+    name: Linux
+    needs: static-checks
+    uses: ./.github/workflows/linux_builds.yml
+
+  windows-build:
+    name: Windows
+    needs: static-checks
+    uses: ./.github/workflows/windows_builds.yml
+
+  macos-build:
+    name: macOS
+    needs: static-checks
+    uses: ./.github/workflows/macos_builds.yml
