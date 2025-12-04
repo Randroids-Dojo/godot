@@ -111,6 +111,15 @@ private:
 	void _bind_profiler(const String &p_name, T *p_prof);
 	Error _try_capture(const String &p_name, const Array &p_data, bool &r_captured);
 
+	// Automation support
+	Error _automation_capture(const String &p_cmd, const Array &p_data, bool &r_captured);
+	void _send_scene_tree();
+	void _send_node_info(const String &p_path);
+	void _send_property(const String &p_path, const String &p_property);
+	void _set_property(const String &p_path, const String &p_property, const Variant &p_value);
+	void _call_method(const String &p_path, const String &p_method, const Array &p_args);
+	Dictionary _serialize_node(class Node *p_node);
+
 public:
 	// Overrides
 	void poll_events(bool p_is_idle);
