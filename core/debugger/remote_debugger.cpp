@@ -40,7 +40,20 @@
 #include "core/math/expression.h"
 #include "core/object/script_language.h"
 #include "core/os/os.h"
+#include "scene/main/node.h"
+#include "scene/main/scene_tree.h"
+#include "scene/main/window.h"
 #include "servers/display/display_server.h"
+
+#ifndef _2D_DISABLED
+#include "scene/2d/node_2d.h"
+#endif
+#ifndef _3D_DISABLED
+#include "scene/3d/node_3d.h"
+#endif
+#ifndef ADVANCED_GUI_DISABLED
+#include "scene/gui/control.h"
+#endif
 
 class RemoteDebugger::PerformanceProfiler : public EngineProfiler {
 	Object *performance = nullptr;
@@ -746,6 +759,153 @@ Error RemoteDebugger::_profiler_capture(const String &p_cmd, const Array &p_data
 	return OK;
 }
 
+Error RemoteDebugger::_automation_capture(const String &p_cmd, const Array &p_data, bool &r_captured) {
+	r_captured = true;
+	if (p_cmd == "get_tree") {
+		_send_scene_tree();
+	} else if (p_cmd == "get_node") {
+		ERR_FAIL_COND_V(p_data.size() < 1, ERR_INVALID_DATA);
+		_send_node_info(p_data[0]);
+	} else if (p_cmd == "get_property") {
+		ERR_FAIL_COND_V(p_data.size() < 2, ERR_INVALID_DATA);
+		_send_property(p_data[0], p_data[1]);
+	} else if (p_cmd == "set_property") {
+		ERR_FAIL_COND_V(p_data.size() < 3, ERR_INVALID_DATA);
+		_set_property(p_data[0], p_data[1], p_data[2]);
+	} else if (p_cmd == "call_method") {
+		ERR_FAIL_COND_V(p_data.size() < 2, ERR_INVALID_DATA);
+		Array args = p_data.size() > 2 ? Array(p_data[2]) : Array();
+		_call_method(p_data[0], p_data[1], args);
+	} else {
+		r_captured = false;
+	}
+	return OK;
+}
+
+void RemoteDebugger::_send_scene_tree() {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
+	Dictionary tree_data = _serialize_node(root);
+
+	Array msg;
+	msg.push_back(tree_data);
+	EngineDebugger::get_singleton()->send_message("automation:tree", msg);
+}
+
+void RemoteDebugger::_send_node_info(const String &p_path) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+
+	Array msg;
+	if (node) {
+		msg.push_back(_serialize_node(node));
+	} else {
+		msg.push_back(Variant());
+	}
+	EngineDebugger::get_singleton()->send_message("automation:node", msg);
+}
+
+void RemoteDebugger::_send_property(const String &p_path, const String &p_property) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+
+	Array msg;
+	msg.push_back(p_path);
+	msg.push_back(p_property);
+
+	if (node) {
+		msg.push_back(node->get(p_property));
+	} else {
+		msg.push_back(Variant());
+	}
+	EngineDebugger::get_singleton()->send_message("automation:property", msg);
+}
+
+void RemoteDebugger::_set_property(const String &p_path, const String &p_property, const Variant &p_value) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+
+	bool success = false;
+	if (node) {
+		node->set(p_property, p_value);
+		success = true;
+	}
+
+	Array msg;
+	msg.push_back(success);
+	EngineDebugger::get_singleton()->send_message("automation:set_result", msg);
+}
+
+void RemoteDebugger::_call_method(const String &p_path, const String &p_method, const Array &p_args) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+
+	Array msg;
+	msg.push_back(p_path);
+	msg.push_back(p_method);
+
+	if (node && node->has_method(p_method)) {
+		Variant result = node->callv(p_method, p_args);
+		msg.push_back(result);
+	} else {
+		msg.push_back(Variant());
+	}
+	EngineDebugger::get_singleton()->send_message("automation:call_result", msg);
+}
+
+Dictionary RemoteDebugger::_serialize_node(Node *p_node) {
+	Dictionary data;
+	data["name"] = p_node->get_name();
+	data["path"] = String(p_node->get_path());
+	data["class"] = p_node->get_class();
+
+	// Add position/visibility for common node types
+#ifndef _2D_DISABLED
+	if (Node2D *n2d = Object::cast_to<Node2D>(p_node)) {
+		data["position"] = n2d->get_position();
+		data["rotation"] = n2d->get_rotation();
+		data["scale"] = n2d->get_scale();
+		data["visible"] = n2d->is_visible();
+	}
+#endif
+#ifndef ADVANCED_GUI_DISABLED
+	if (Control *ctrl = Object::cast_to<Control>(p_node)) {
+		data["position"] = ctrl->get_position();
+		data["size"] = ctrl->get_size();
+		data["visible"] = ctrl->is_visible();
+	}
+#endif
+#ifndef _3D_DISABLED
+	if (Node3D *n3d = Object::cast_to<Node3D>(p_node)) {
+		data["position"] = n3d->get_position();
+		data["rotation"] = n3d->get_rotation();
+		data["scale"] = n3d->get_scale();
+		data["visible"] = n3d->is_visible();
+	}
+#endif
+
+	// Recurse children
+	Array children;
+	for (int i = 0; i < p_node->get_child_count(); i++) {
+		children.push_back(_serialize_node(p_node->get_child(i)));
+	}
+	data["children"] = children;
+
+	return data;
+}
+
 RemoteDebugger::RemoteDebugger(Ref<RemoteDebuggerPeer> p_peer) {
 	peer = p_peer;
 	max_chars_per_second = GLOBAL_GET("network/limits/debugger/max_chars_per_second");
@@ -771,6 +931,13 @@ RemoteDebugger::RemoteDebugger(Ref<RemoteDebuggerPeer> p_peer) {
 				return static_cast<RemoteDebugger *>(p_user)->_profiler_capture(p_cmd, p_data, r_captured);
 			});
 	register_message_capture("profiler", profiler_cap);
+
+	// Automation capture for external tool control (e.g., PlayGodot)
+	Capture automation_cap(this,
+			[](void *p_user, const String &p_cmd, const Array &p_data, bool &r_captured) {
+				return static_cast<RemoteDebugger *>(p_user)->_automation_capture(p_cmd, p_data, r_captured);
+			});
+	register_message_capture("automation", automation_cap);
 
 	// Error handlers
 	phl.printfunc = _print_handler;
