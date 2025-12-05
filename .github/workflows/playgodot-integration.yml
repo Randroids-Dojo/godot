@@ -5,7 +5,7 @@ name: PlayGodot Integration Tests
 
 on:
   workflow_run:
-    workflows: ["Build Godot Automation"]
+    workflows: ["🔗 GHA"]
     types: [completed]
     branches: [automation]
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
       - name: Download Godot artifact
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: build-automation.yml
+          workflow: runner.yml
           workflow_conclusion: success
           name: linux-editor-mono
           path: godot-bin
@@ -33,7 +33,7 @@ jobs:
         if: failure() || hashFiles('godot-bin/godot.*') == ''
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: build-automation.yml
+          workflow: runner.yml
           workflow_conclusion: success
           name: linux-editor-mono
           path: godot-bin
