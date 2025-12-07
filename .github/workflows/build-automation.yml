@@ -41,7 +41,7 @@ jobs:
       - name: Download Linux Editor artifact
         uses: actions/download-artifact@v4
         with:
-          name: linux-editor
+          name: linux-editor-mono
           path: artifacts/linux
 
       - name: Download macOS Editor artifact
@@ -54,7 +54,7 @@ jobs:
         run: |
           cd artifacts
           # Make binaries executable
-          chmod +x linux/godot.linuxbsd.editor.x86_64 || true
+          chmod +x linux/godot.linuxbsd.editor.x86_64.mono || true
           chmod +x macos/godot.macos.editor.universal || true
           # Create zip files for release
           cd linux && zip -r ../godot-automation-linux-x86_64.zip . && cd ..
@@ -82,11 +82,14 @@ jobs:
 
             ## Usage
             ```bash
-            # Download and extract
+            # Linux
+            unzip godot-automation-linux-x86_64.zip
+            chmod +x godot.linuxbsd.editor.x86_64.mono
+            ./godot.linuxbsd.editor.x86_64.mono --path /path/to/project --remote-debug tcp://127.0.0.1:6007
+
+            # macOS
             unzip godot-automation-macos-universal.zip
             chmod +x godot.macos.editor.universal
-
-            # Run with remote debugging for PlayGodot
             ./godot.macos.editor.universal --path /path/to/project --remote-debug tcp://127.0.0.1:6007
             ```
 
