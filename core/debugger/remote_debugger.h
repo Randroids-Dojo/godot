@@ -127,6 +127,17 @@ private:
 	void _inject_touch(int p_index, const Vector2 &p_position, bool p_pressed);
 	void _inject_action(const String &p_action, bool p_pressed, float p_strength = 1.0f);
 
+	// Extended automation (Phase 3)
+	void _send_screenshot(const String &p_node_path);
+	void _query_nodes_recursive(class Node *p_node, const String &p_pattern, Array &r_results);
+	void _query_nodes(const String &p_pattern);
+	void _count_nodes(const String &p_pattern);
+	void _send_current_scene();
+	void _change_scene(const String &p_scene_path);
+	void _reload_scene();
+	void _set_pause(bool p_paused);
+	void _set_time_scale(float p_scale);
+
 public:
 	// Overrides
 	void poll_events(bool p_is_idle);
