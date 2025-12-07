@@ -8,6 +8,11 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  workflows: write
+  issues: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
