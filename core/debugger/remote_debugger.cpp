@@ -1155,7 +1155,9 @@ void RemoteDebugger::_send_current_scene() {
 	Node *current = tree->get_current_scene();
 	if (current) {
 		msg.push_back(current->get_scene_file_path());
+		msg.push_back(current->get_name());
 	} else {
+		msg.push_back("");
 		msg.push_back("");
 	}
 	EngineDebugger::get_singleton()->send_message("automation:current_scene", msg);
@@ -1183,22 +1185,28 @@ void RemoteDebugger::_reload_scene() {
 	EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
 }
 
-void RemoteDebugger::_set_pause(bool p_paused) {
+void RemoteDebugger::_set_pause(const Variant &p_paused) {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
-	tree->set_pause(p_paused);
+	// If value is Nil, it's a query for current state
+	if (p_paused.get_type() != Variant::NIL) {
+		tree->set_pause(p_paused);
+	}
 
 	Array msg;
-	msg.push_back(true);
+	msg.push_back(tree->is_paused());
 	EngineDebugger::get_singleton()->send_message("automation:pause_result", msg);
 }
 
-void RemoteDebugger::_set_time_scale(float p_scale) {
-	Engine::get_singleton()->set_time_scale(p_scale);
+void RemoteDebugger::_set_time_scale(const Variant &p_scale) {
+	// If value is Nil, it's a query for current state
+	if (p_scale.get_type() != Variant::NIL) {
+		Engine::get_singleton()->set_time_scale(p_scale);
+	}
 
 	Array msg;
-	msg.push_back(true);
+	msg.push_back(Engine::get_singleton()->get_time_scale());
 	EngineDebugger::get_singleton()->send_message("automation:time_scale_result", msg);
 }
 
