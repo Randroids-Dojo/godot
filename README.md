@@ -8,6 +8,10 @@
 
 ## 2D and 3D cross-platform game engine
 
+> **🔧 This is a fork with automation support!**
+>
+> This fork adds external automation capabilities to Godot's RemoteDebugger for use with [PlayGodot](https://github.com/Randroids-Dojo/PlayGodot). See the [Automation Branch](#automation-branch) section below.
+
 **[Godot Engine](https://godotengine.org) is a feature-packed, cross-platform
 game engine to create 2D and 3D games from a unified interface.** It provides a
 comprehensive set of [common tools](https://godotengine.org/features), so that
@@ -76,3 +80,92 @@ for more information.
 [![Code Triagers Badge](https://www.codetriage.com/godotengine/godot/badges/users.svg)](https://www.codetriage.com/godotengine/godot)
 [![Translate on Weblate](https://hosted.weblate.org/widgets/godot-engine/-/godot/svg-badge.svg)](https://hosted.weblate.org/engage/godot-engine/?utm_source=widget)
 [![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/godotengine/godot)](https://www.tickgit.com/browse?repo=github.com/godotengine/godot)
+
+---
+
+## Automation Branch
+
+This fork's `automation` branch extends Godot's `RemoteDebugger` with external automation capabilities for testing and controlling games from external scripts.
+
+### Features
+
+The automation protocol adds the following commands to `core/debugger/remote_debugger.cpp`:
+
+**Node Interaction**
+- `get_node` - Get node info and properties by path
+- `get_property` - Get a single property value
+- `set_property` - Set a property value
+- `call_method` - Call any method on any node
+
+**Scene Management**
+- `scene_tree` - Get the full scene tree structure
+- `query_nodes` - Find nodes matching a pattern
+- `count_nodes` - Count nodes matching a pattern
+- `current_scene` - Get current scene path and name
+- `change_scene` - Load a different scene
+- `reload_scene` - Reload the current scene
+
+**Game Control**
+- `pause` - Get or set the pause state
+- `time_scale` - Get or set the time scale
+- `screenshot` - Capture a PNG screenshot
+
+**Input Injection**
+- `inject_mouse_button` - Simulate mouse clicks
+- `inject_mouse_motion` - Simulate mouse movement
+- `inject_key` - Simulate keyboard input
+- `inject_action` - Simulate input actions
+- `inject_touch` - Simulate touch input
+
+### Building
+
+```bash
+# Clone this fork
+git clone https://github.com/Randroids-Dojo/godot.git
+cd godot
+git checkout automation
+
+# Build for macOS (Apple Silicon)
+scons platform=macos arch=arm64 target=editor -j8
+
+# Build for macOS (Intel)
+scons platform=macos arch=x86_64 target=editor -j8
+
+# Build for Linux
+scons platform=linuxbsd target=editor -j8
+
+# Build for Windows
+scons platform=windows target=editor -j8
+```
+
+### Usage with PlayGodot
+
+Use this build with [PlayGodot](https://github.com/Randroids-Dojo/PlayGodot) for Python-based game testing:
+
+```python
+from playgodot import Godot
+
+async with Godot.launch("./my-game") as game:
+    # Get node info
+    node = await game.get_node("/root/Game")
+
+    # Call methods
+    result = await game.call_method("/root/Game", "get_score")
+
+    # Simulate input
+    await game.click(400, 300)
+    await game.press_key(KEY_SPACE)
+
+    # Take screenshots
+    await game.screenshot("test.png")
+```
+
+### Modified Files
+
+- `core/debugger/remote_debugger.cpp` - Automation command handlers
+- `core/debugger/remote_debugger.h` - Automation method declarations
+
+### Related Projects
+
+- [PlayGodot](https://github.com/Randroids-Dojo/PlayGodot) - Python client library
+- [Godot-Claude-Skills](https://github.com/Randroids-Dojo/Godot-Claude-Skills) - Claude Code skill for Godot development
