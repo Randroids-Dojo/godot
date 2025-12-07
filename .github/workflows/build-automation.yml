@@ -1,4 +1,4 @@
-# Build Godot automation branch using upstream workflows
+# Build Godot automation branch and create release artifacts
 
 name: Build Godot Automation
 
@@ -9,8 +9,6 @@ on:
     branches: [automation]
   workflow_dispatch:
   workflow_call:
-  schedule:
-    - cron: '0 4 * * 0'
 
 concurrency:
   group: ${{ github.workflow }}|${{ github.ref_name }}
@@ -26,12 +24,75 @@ jobs:
     needs: static-checks
     uses: ./.github/workflows/linux_builds.yml
 
-  windows-build:
-    name: Windows
-    needs: static-checks
-    uses: ./.github/workflows/windows_builds.yml
-
   macos-build:
     name: macOS
     needs: static-checks
     uses: ./.github/workflows/macos_builds.yml
+
+  # Create a release with the built binaries (only on push to automation branch)
+  release:
+    name: Create Release
+    needs: [linux-build, macos-build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/automation'
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux Editor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-editor
+          path: artifacts/linux
+
+      - name: Download macOS Editor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-editor
+          path: artifacts/macos
+
+      - name: Prepare release assets
+        run: |
+          cd artifacts
+          # Make binaries executable
+          chmod +x linux/godot.linuxbsd.editor.x86_64 || true
+          chmod +x macos/godot.macos.editor.universal || true
+          # Create zip files for release
+          cd linux && zip -r ../godot-automation-linux-x86_64.zip . && cd ..
+          cd macos && zip -r ../godot-automation-macos-universal.zip . && cd ..
+          ls -la *.zip
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: automation-latest
+          name: Automation Build (latest)
+          body: |
+            Pre-built Godot binaries with PlayGodot automation support.
+
+            **Commit:** ${{ github.sha }}
+            **Built:** ${{ github.event.head_commit.timestamp }}
+
+            ## Downloads
+            - `godot-automation-linux-x86_64.zip` - Linux x86_64 editor
+            - `godot-automation-macos-universal.zip` - macOS universal (Intel + Apple Silicon) editor
+
+            ## Usage
+            ```bash
+            # Download and extract
+            unzip godot-automation-macos-universal.zip
+            chmod +x godot.macos.editor.universal
+
+            # Run with remote debugging for PlayGodot
+            ./godot.macos.editor.universal --path /path/to/project --remote-debug tcp://127.0.0.1:6007
+            ```
+
+            See [PlayGodot](https://github.com/Randroids-Dojo/PlayGodot) for the Python client.
+          files: |
+            artifacts/godot-automation-linux-x86_64.zip
+            artifacts/godot-automation-macos-universal.zip
+          prerelease: true
+          make_latest: false
