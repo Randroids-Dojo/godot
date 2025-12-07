@@ -120,6 +120,13 @@ private:
 	void _call_method(const String &p_path, const String &p_method, const Array &p_args);
 	Dictionary _serialize_node(class Node *p_node);
 
+	// Input injection for automation (Phase 2)
+	void _inject_mouse_button(const Vector2 &p_position, int p_button, bool p_pressed, bool p_double_click = false);
+	void _inject_mouse_motion(const Vector2 &p_position, const Vector2 &p_relative);
+	void _inject_key(int p_keycode, bool p_pressed, bool p_physical = false);
+	void _inject_touch(int p_index, const Vector2 &p_position, bool p_pressed);
+	void _inject_action(const String &p_action, bool p_pressed, float p_strength = 1.0f);
+
 public:
 	// Overrides
 	void poll_events(bool p_is_idle);
