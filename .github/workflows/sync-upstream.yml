@@ -94,8 +94,3 @@ jobs:
                 labels: ['upstream-sync', 'needs-attention']
               });
             }
-
-  trigger-build:
-    needs: sync
-    if: success()
-    uses: ./.github/workflows/build-automation.yml
