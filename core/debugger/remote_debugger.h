@@ -135,8 +135,8 @@ private:
 	void _send_current_scene();
 	void _change_scene(const String &p_scene_path);
 	void _reload_scene();
-	void _set_pause(bool p_paused);
-	void _set_time_scale(float p_scale);
+	void _set_pause(const Variant &p_paused);
+	void _set_time_scale(const Variant &p_scale);
 
 public:
 	// Overrides
