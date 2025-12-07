@@ -32,7 +32,7 @@ jobs:
 
       - name: Update master from upstream
         run: |
-          git checkout master
+          git checkout -B master origin/master
           git reset --hard upstream/master
           git push origin master --force
 
@@ -40,7 +40,7 @@ jobs:
         id: rebase
         continue-on-error: true
         run: |
-          git checkout automation
+          git checkout -B automation origin/automation
           if git rebase master; then
             echo "rebase_success=true" >> $GITHUB_OUTPUT
           else
