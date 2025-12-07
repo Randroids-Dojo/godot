@@ -796,6 +796,34 @@ Error RemoteDebugger::_automation_capture(const String &p_cmd, const Array &p_da
 		ERR_FAIL_COND_V(p_data.size() < 2, ERR_INVALID_DATA);
 		float strength = p_data.size() > 2 ? (float)p_data[2] : 1.0f;
 		_inject_action(p_data[0], p_data[1], strength);
+	} else if (p_cmd == "screenshot") {
+		// screenshot: [] or [node_path]
+		String node_path = p_data.size() > 0 ? String(p_data[0]) : "";
+		_send_screenshot(node_path);
+	} else if (p_cmd == "query_nodes") {
+		// query_nodes: [pattern]
+		ERR_FAIL_COND_V(p_data.size() < 1, ERR_INVALID_DATA);
+		_query_nodes(p_data[0]);
+	} else if (p_cmd == "count_nodes") {
+		// count_nodes: [pattern]
+		ERR_FAIL_COND_V(p_data.size() < 1, ERR_INVALID_DATA);
+		_count_nodes(p_data[0]);
+	} else if (p_cmd == "get_current_scene") {
+		_send_current_scene();
+	} else if (p_cmd == "change_scene") {
+		// change_scene: [scene_path]
+		ERR_FAIL_COND_V(p_data.size() < 1, ERR_INVALID_DATA);
+		_change_scene(p_data[0]);
+	} else if (p_cmd == "reload_scene") {
+		_reload_scene();
+	} else if (p_cmd == "pause") {
+		// pause: [paused]
+		ERR_FAIL_COND_V(p_data.size() < 1, ERR_INVALID_DATA);
+		_set_pause(p_data[0]);
+	} else if (p_cmd == "time_scale") {
+		// time_scale: [scale]
+		ERR_FAIL_COND_V(p_data.size() < 1, ERR_INVALID_DATA);
+		_set_time_scale(p_data[0]);
 	} else {
 		r_captured = false;
 	}
@@ -1018,6 +1046,152 @@ void RemoteDebugger::_inject_action(const String &p_action, bool p_pressed, floa
 	Array msg;
 	msg.push_back(true);
 	EngineDebugger::get_singleton()->send_message("automation:input_result", msg);
+}
+
+void RemoteDebugger::_send_screenshot(const String &p_node_path) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Ref<Image> image;
+
+	if (p_node_path.is_empty()) {
+		// Capture entire viewport
+		Viewport *viewport = tree->get_root();
+		ERR_FAIL_NULL(viewport);
+		image = viewport->get_texture()->get_image();
+	} else {
+		// Capture specific node's viewport
+		Node *node = tree->get_root()->get_node_or_null(NodePath(p_node_path));
+		if (node) {
+			CanvasItem *ci = Object::cast_to<CanvasItem>(node);
+			if (ci) {
+				Viewport *viewport = ci->get_viewport();
+				if (viewport) {
+					image = viewport->get_texture()->get_image();
+				}
+			}
+		}
+	}
+
+	Array msg;
+	if (image.is_valid()) {
+		PackedByteArray png_data = image->save_png_to_buffer();
+		msg.push_back(png_data);
+	} else {
+		msg.push_back(PackedByteArray());
+	}
+	EngineDebugger::get_singleton()->send_message("automation:screenshot", msg);
+}
+
+void RemoteDebugger::_query_nodes_recursive(Node *p_node, const String &p_pattern, Array &r_results) {
+	if (!p_node) {
+		return;
+	}
+
+	String name = p_node->get_name();
+	String node_class = p_node->get_class();
+
+	// Match by name pattern (supports * wildcard) or class name
+	bool match = false;
+	if (p_pattern.begins_with("*") && p_pattern.ends_with("*")) {
+		String inner = p_pattern.substr(1, p_pattern.length() - 2);
+		match = name.contains(inner) || node_class.contains(inner);
+	} else if (p_pattern.begins_with("*")) {
+		String suffix = p_pattern.substr(1);
+		match = name.ends_with(suffix) || node_class.ends_with(suffix);
+	} else if (p_pattern.ends_with("*")) {
+		String prefix = p_pattern.substr(0, p_pattern.length() - 1);
+		match = name.begins_with(prefix) || node_class.begins_with(prefix);
+	} else {
+		match = name == p_pattern || node_class == p_pattern;
+	}
+
+	if (match) {
+		r_results.push_back(_serialize_node(p_node));
+	}
+
+	for (int i = 0; i < p_node->get_child_count(); i++) {
+		_query_nodes_recursive(p_node->get_child(i), p_pattern, r_results);
+	}
+}
+
+void RemoteDebugger::_query_nodes(const String &p_pattern) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Array results;
+	_query_nodes_recursive(tree->get_root(), p_pattern, results);
+
+	Array msg;
+	msg.push_back(results);
+	EngineDebugger::get_singleton()->send_message("automation:query_result", msg);
+}
+
+void RemoteDebugger::_count_nodes(const String &p_pattern) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Array results;
+	_query_nodes_recursive(tree->get_root(), p_pattern, results);
+
+	Array msg;
+	msg.push_back(results.size());
+	EngineDebugger::get_singleton()->send_message("automation:count_result", msg);
+}
+
+void RemoteDebugger::_send_current_scene() {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Array msg;
+	Node *current = tree->get_current_scene();
+	if (current) {
+		msg.push_back(current->get_scene_file_path());
+	} else {
+		msg.push_back("");
+	}
+	EngineDebugger::get_singleton()->send_message("automation:current_scene", msg);
+}
+
+void RemoteDebugger::_change_scene(const String &p_scene_path) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Error err = tree->change_scene_to_file(p_scene_path);
+
+	Array msg;
+	msg.push_back(err == OK);
+	EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+}
+
+void RemoteDebugger::_reload_scene() {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	Error err = tree->reload_current_scene();
+
+	Array msg;
+	msg.push_back(err == OK);
+	EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+}
+
+void RemoteDebugger::_set_pause(bool p_paused) {
+	SceneTree *tree = SceneTree::get_singleton();
+	ERR_FAIL_NULL(tree);
+
+	tree->set_pause(p_paused);
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:pause_result", msg);
+}
+
+void RemoteDebugger::_set_time_scale(float p_scale) {
+	Engine::get_singleton()->set_time_scale(p_scale);
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:time_scale_result", msg);
 }
 
 RemoteDebugger::RemoteDebugger(Ref<RemoteDebuggerPeer> p_peer) {
