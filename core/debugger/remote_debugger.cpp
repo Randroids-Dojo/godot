@@ -36,6 +36,7 @@
 #include "core/debugger/engine_profiler.h"
 #include "core/debugger/script_debugger.h"
 #include "core/input/input.h"
+#include "core/input/input_event.h"
 #include "core/io/resource_loader.h"
 #include "core/math/expression.h"
 #include "core/object/script_language.h"
@@ -776,6 +777,33 @@ Error RemoteDebugger::_automation_capture(const String &p_cmd, const Array &p_da
 		ERR_FAIL_COND_V(p_data.size() < 2, ERR_INVALID_DATA);
 		Array args = p_data.size() > 2 ? Array(p_data[2]) : Array();
 		_call_method(p_data[0], p_data[1], args);
+	} else if (p_cmd == "mouse_button") {
+		// mouse_button: [x, y, button_index, pressed, double_click?]
+		ERR_FAIL_COND_V(p_data.size() < 4, ERR_INVALID_DATA);
+		Vector2 pos(p_data[0], p_data[1]);
+		bool double_click = p_data.size() > 4 ? (bool)p_data[4] : false;
+		_inject_mouse_button(pos, p_data[2], p_data[3], double_click);
+	} else if (p_cmd == "mouse_motion") {
+		// mouse_motion: [x, y, relative_x, relative_y]
+		ERR_FAIL_COND_V(p_data.size() < 4, ERR_INVALID_DATA);
+		Vector2 pos(p_data[0], p_data[1]);
+		Vector2 rel(p_data[2], p_data[3]);
+		_inject_mouse_motion(pos, rel);
+	} else if (p_cmd == "key") {
+		// key: [keycode, pressed, physical?]
+		ERR_FAIL_COND_V(p_data.size() < 2, ERR_INVALID_DATA);
+		bool physical = p_data.size() > 2 ? (bool)p_data[2] : false;
+		_inject_key(p_data[0], p_data[1], physical);
+	} else if (p_cmd == "touch") {
+		// touch: [index, x, y, pressed]
+		ERR_FAIL_COND_V(p_data.size() < 4, ERR_INVALID_DATA);
+		Vector2 pos(p_data[1], p_data[2]);
+		_inject_touch(p_data[0], pos, p_data[3]);
+	} else if (p_cmd == "action") {
+		// action: [action_name, pressed, strength?]
+		ERR_FAIL_COND_V(p_data.size() < 2, ERR_INVALID_DATA);
+		float strength = p_data.size() > 2 ? (float)p_data[2] : 1.0f;
+		_inject_action(p_data[0], p_data[1], strength);
 	} else {
 		r_captured = false;
 	}
@@ -904,6 +932,100 @@ Dictionary RemoteDebugger::_serialize_node(Node *p_node) {
 	data["children"] = children;
 
 	return data;
+}
+
+void RemoteDebugger::_inject_mouse_button(const Vector2 &p_position, int p_button, bool p_pressed, bool p_double_click) {
+	Input *input = Input::get_singleton();
+	ERR_FAIL_NULL(input);
+
+	Ref<InputEventMouseButton> ev;
+	ev.instantiate();
+	ev->set_device(InputEvent::DEVICE_ID_EMULATION);
+	ev->set_position(p_position);
+	ev->set_global_position(p_position);
+	ev->set_button_index((MouseButton)p_button);
+	ev->set_pressed(p_pressed);
+	ev->set_double_click(p_double_click);
+
+	input->parse_input_event(ev);
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:input_result", msg);
+}
+
+void RemoteDebugger::_inject_mouse_motion(const Vector2 &p_position, const Vector2 &p_relative) {
+	Input *input = Input::get_singleton();
+	ERR_FAIL_NULL(input);
+
+	Ref<InputEventMouseMotion> ev;
+	ev.instantiate();
+	ev->set_device(InputEvent::DEVICE_ID_EMULATION);
+	ev->set_position(p_position);
+	ev->set_global_position(p_position);
+	ev->set_relative(p_relative);
+	ev->set_button_mask(input->get_mouse_button_mask());
+
+	input->parse_input_event(ev);
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:input_result", msg);
+}
+
+void RemoteDebugger::_inject_key(int p_keycode, bool p_pressed, bool p_physical) {
+	Input *input = Input::get_singleton();
+	ERR_FAIL_NULL(input);
+
+	Ref<InputEventKey> ev;
+	ev.instantiate();
+	ev->set_device(InputEvent::DEVICE_ID_EMULATION);
+	ev->set_pressed(p_pressed);
+
+	if (p_physical) {
+		ev->set_physical_keycode((Key)p_keycode);
+	} else {
+		ev->set_keycode((Key)p_keycode);
+	}
+
+	input->parse_input_event(ev);
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:input_result", msg);
+}
+
+void RemoteDebugger::_inject_touch(int p_index, const Vector2 &p_position, bool p_pressed) {
+	Input *input = Input::get_singleton();
+	ERR_FAIL_NULL(input);
+
+	Ref<InputEventScreenTouch> ev;
+	ev.instantiate();
+	ev->set_device(InputEvent::DEVICE_ID_EMULATION);
+	ev->set_index(p_index);
+	ev->set_position(p_position);
+	ev->set_pressed(p_pressed);
+
+	input->parse_input_event(ev);
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:input_result", msg);
+}
+
+void RemoteDebugger::_inject_action(const String &p_action, bool p_pressed, float p_strength) {
+	Input *input = Input::get_singleton();
+	ERR_FAIL_NULL(input);
+
+	if (p_pressed) {
+		input->action_press(p_action, p_strength);
+	} else {
+		input->action_release(p_action);
+	}
+
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:input_result", msg);
 }
 
 RemoteDebugger::RemoteDebugger(Ref<RemoteDebuggerPeer> p_peer) {
