@@ -848,6 +848,14 @@ void RemoteDebugger::_send_scene_tree() {
 	Node *root = tree->get_root();
 	ERR_FAIL_NULL(root);
 
+	// Guard: tree must be initialized before we can serialize nodes (which calls get_path())
+	if (!root->is_inside_tree()) {
+		Array msg;
+		msg.push_back(Dictionary());
+		EngineDebugger::get_singleton()->send_message("automation:tree", msg);
+		return;
+	}
+
 	Dictionary tree_data = _serialize_node(root);
 
 	Array msg;
@@ -859,9 +867,19 @@ void RemoteDebugger::_send_node_info(const String &p_path) {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
-	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
 
 	Array msg;
+
+	// Guard: tree must be initialized before using absolute paths
+	if (!root->is_inside_tree()) {
+		msg.push_back(Variant());
+		EngineDebugger::get_singleton()->send_message("automation:node", msg);
+		return;
+	}
+
+	Node *node = root->get_node_or_null(NodePath(p_path));
 	if (node) {
 		msg.push_back(_serialize_node(node));
 	} else {
@@ -874,12 +892,21 @@ void RemoteDebugger::_send_property(const String &p_path, const String &p_proper
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
-	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
 
 	Array msg;
 	msg.push_back(p_path);
 	msg.push_back(p_property);
 
+	// Guard: tree must be initialized before using absolute paths
+	if (!root->is_inside_tree()) {
+		msg.push_back(Variant());
+		EngineDebugger::get_singleton()->send_message("automation:property", msg);
+		return;
+	}
+
+	Node *node = root->get_node_or_null(NodePath(p_path));
 	if (node) {
 		msg.push_back(node->get(p_property));
 	} else {
@@ -892,7 +919,18 @@ void RemoteDebugger::_set_property(const String &p_path, const String &p_propert
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
-	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
+	// Guard: tree must be initialized before using absolute paths
+	if (!root->is_inside_tree()) {
+		Array msg;
+		msg.push_back(false);
+		EngineDebugger::get_singleton()->send_message("automation:set_result", msg);
+		return;
+	}
+
+	Node *node = root->get_node_or_null(NodePath(p_path));
 
 	bool success = false;
 	if (node) {
@@ -909,12 +947,21 @@ void RemoteDebugger::_call_method(const String &p_path, const String &p_method, 
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
-	Node *node = tree->get_root()->get_node_or_null(NodePath(p_path));
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
 
 	Array msg;
 	msg.push_back(p_path);
 	msg.push_back(p_method);
 
+	// Guard: tree must be initialized before using absolute paths
+	if (!root->is_inside_tree()) {
+		msg.push_back(Variant());
+		EngineDebugger::get_singleton()->send_message("automation:call_result", msg);
+		return;
+	}
+
+	Node *node = root->get_node_or_null(NodePath(p_path));
 	if (node && node->has_method(p_method)) {
 		Variant result = node->callv(p_method, p_args);
 		msg.push_back(result);
@@ -1063,16 +1110,27 @@ void RemoteDebugger::_send_screenshot(const String &p_node_path) {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
+	// Guard: tree must be initialized for screenshots (need valid viewport)
+	if (!root->is_inside_tree()) {
+		Array msg;
+		msg.push_back(PackedByteArray());
+		EngineDebugger::get_singleton()->send_message("automation:screenshot", msg);
+		return;
+	}
+
 	Ref<Image> image;
 
 	if (p_node_path.is_empty()) {
 		// Capture entire viewport
-		Viewport *viewport = tree->get_root();
+		Viewport *viewport = Object::cast_to<Viewport>(root);
 		ERR_FAIL_NULL(viewport);
 		image = viewport->get_texture()->get_image();
 	} else {
 		// Capture specific node's viewport
-		Node *node = tree->get_root()->get_node_or_null(NodePath(p_node_path));
+		Node *node = root->get_node_or_null(NodePath(p_node_path));
 		if (node) {
 			CanvasItem *ci = Object::cast_to<CanvasItem>(node);
 			if (ci) {
@@ -1130,8 +1188,15 @@ void RemoteDebugger::_query_nodes(const String &p_pattern) {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
 	Array results;
-	_query_nodes_recursive(tree->get_root(), p_pattern, results);
+
+	// Guard: tree must be initialized for node queries (uses _serialize_node which calls get_path())
+	if (root->is_inside_tree()) {
+		_query_nodes_recursive(root, p_pattern, results);
+	}
 
 	Array msg;
 	msg.push_back(results);
@@ -1142,8 +1207,15 @@ void RemoteDebugger::_count_nodes(const String &p_pattern) {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
 	Array results;
-	_query_nodes_recursive(tree->get_root(), p_pattern, results);
+
+	// Guard: tree must be initialized for node queries (uses _serialize_node which calls get_path())
+	if (root->is_inside_tree()) {
+		_query_nodes_recursive(root, p_pattern, results);
+	}
 
 	Array msg;
 	msg.push_back(results.size());
