@@ -1026,6 +1026,7 @@ void RemoteDebugger::_inject_mouse_button(const Vector2 &p_position, int p_butto
 	ev->set_double_click(p_double_click);
 
 	input->parse_input_event(ev);
+	DisplayServer::get_singleton()->process_events();
 
 	Array msg;
 	msg.push_back(true);
@@ -1045,6 +1046,7 @@ void RemoteDebugger::_inject_mouse_motion(const Vector2 &p_position, const Vecto
 	ev->set_button_mask(input->get_mouse_button_mask());
 
 	input->parse_input_event(ev);
+	DisplayServer::get_singleton()->process_events();
 
 	Array msg;
 	msg.push_back(true);
@@ -1067,6 +1069,7 @@ void RemoteDebugger::_inject_key(int p_keycode, bool p_pressed, bool p_physical)
 	}
 
 	input->parse_input_event(ev);
+	DisplayServer::get_singleton()->process_events();
 
 	Array msg;
 	msg.push_back(true);
@@ -1085,6 +1088,7 @@ void RemoteDebugger::_inject_touch(int p_index, const Vector2 &p_position, bool 
 	ev->set_pressed(p_pressed);
 
 	input->parse_input_event(ev);
+	DisplayServer::get_singleton()->process_events();
 
 	Array msg;
 	msg.push_back(true);
@@ -1100,6 +1104,7 @@ void RemoteDebugger::_inject_action(const String &p_action, bool p_pressed, floa
 	} else {
 		input->action_release(p_action);
 	}
+	DisplayServer::get_singleton()->process_events();
 
 	Array msg;
 	msg.push_back(true);

@@ -49,7 +49,9 @@ private:
 	static DisplayServer *create_func(const String &p_rendering_driver, DisplayServer::WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Context p_context, int64_t p_parent_window, Error &r_error) {
 		r_error = OK;
 		RasterizerDummy::make_current();
-		return memnew(DisplayServerHeadless());
+		DisplayServerHeadless *ds = memnew(DisplayServerHeadless());
+		ds->window_size = p_resolution;
+		return ds;
 	}
 
 	static void _dispatch_input_events(const Ref<InputEvent> &p_event) {
@@ -64,6 +66,7 @@ private:
 
 	NativeMenu *native_menu = nullptr;
 	Callable input_event_callback;
+	Size2i window_size;
 
 public:
 	bool has_feature(Feature p_feature) const override { return false; }
@@ -75,7 +78,7 @@ public:
 	int get_screen_count() const override { return 0; }
 	int get_primary_screen() const override { return 0; }
 	Point2i screen_get_position(int p_screen = SCREEN_OF_MAIN_WINDOW) const override { return Point2i(); }
-	Size2i screen_get_size(int p_screen = SCREEN_OF_MAIN_WINDOW) const override { return Size2i(); }
+	Size2i screen_get_size(int p_screen = SCREEN_OF_MAIN_WINDOW) const override { return window_size; }
 	Rect2i screen_get_usable_rect(int p_screen = SCREEN_OF_MAIN_WINDOW) const override { return Rect2i(); }
 	int screen_get_dpi(int p_screen = SCREEN_OF_MAIN_WINDOW) const override { return 96; /* 0 might cause issues */ }
 	float screen_get_scale(int p_screen = SCREEN_OF_MAIN_WINDOW) const override { return 1; }
@@ -125,9 +128,9 @@ public:
 	void window_set_min_size(const Size2i p_size, WindowID p_window = MAIN_WINDOW_ID) override {}
 	Size2i window_get_min_size(WindowID p_window = MAIN_WINDOW_ID) const override { return Size2i(); }
 
-	void window_set_size(const Size2i p_size, WindowID p_window = MAIN_WINDOW_ID) override {}
-	Size2i window_get_size(WindowID p_window = MAIN_WINDOW_ID) const override { return Size2i(); }
-	Size2i window_get_size_with_decorations(WindowID p_window = MAIN_WINDOW_ID) const override { return Size2i(); }
+	void window_set_size(const Size2i p_size, WindowID p_window = MAIN_WINDOW_ID) override { window_size = p_size; }
+	Size2i window_get_size(WindowID p_window = MAIN_WINDOW_ID) const override { return window_size; }
+	Size2i window_get_size_with_decorations(WindowID p_window = MAIN_WINDOW_ID) const override { return window_size; }
 
 	void window_set_mode(WindowMode p_mode, WindowID p_window = MAIN_WINDOW_ID) override {}
 	WindowMode window_get_mode(WindowID p_window = MAIN_WINDOW_ID) const override { return WINDOW_MODE_MINIMIZED; }
