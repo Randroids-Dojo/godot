@@ -14,7 +14,7 @@ Common includes that must be explicit:
 |---------------|------------------|
 | `callable_mp_static` | `#include "core/object/callable_method_pointer.h"` |
 | `callable_mp` | `#include "core/object/callable_method_pointer.h"` |
-| `CONNECT_ONE_SHOT` | `#include "core/object/object.h"` |
+| `Object::CONNECT_ONE_SHOT` | `#include "core/object/object.h"` (use `Object::` qualifier) |
 | `Ref<T>` | `#include "core/object/ref_counted.h"` |
 | `Vector`, `List`, `HashMap` | `#include "core/templates/<container>.h"` |
 
