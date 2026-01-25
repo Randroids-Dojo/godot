@@ -1243,26 +1243,71 @@ void RemoteDebugger::_send_current_scene() {
 	EngineDebugger::get_singleton()->send_message("automation:current_scene", msg);
 }
 
+// Static callback for scene_changed signal - sends automation result after scene is fully loaded
+static void _on_scene_changed_send_result() {
+	Array msg;
+	msg.push_back(true);
+	EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+}
+
 void RemoteDebugger::_change_scene(const String &p_scene_path) {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
+	// Guard: tree must be initialized before we can change scenes
+	if (!root->is_inside_tree()) {
+		Array msg;
+		msg.push_back(false);
+		EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+		return;
+	}
+
 	Error err = tree->change_scene_to_file(p_scene_path);
 
-	Array msg;
-	msg.push_back(err == OK);
-	EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+	if (err != OK) {
+		// Immediate failure (e.g., file not found) - send error response now
+		Array msg;
+		msg.push_back(false);
+		EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+		return;
+	}
+
+	// Scene change is deferred - connect to scene_changed signal to send response
+	// when the scene is actually loaded and ready
+	tree->connect("scene_changed", callable_mp_static(&_on_scene_changed_send_result), CONNECT_ONE_SHOT);
 }
 
 void RemoteDebugger::_reload_scene() {
 	SceneTree *tree = SceneTree::get_singleton();
 	ERR_FAIL_NULL(tree);
 
+	Node *root = tree->get_root();
+	ERR_FAIL_NULL(root);
+
+	// Guard: tree must be initialized before we can reload scenes
+	if (!root->is_inside_tree()) {
+		Array msg;
+		msg.push_back(false);
+		EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+		return;
+	}
+
 	Error err = tree->reload_current_scene();
 
-	Array msg;
-	msg.push_back(err == OK);
-	EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+	if (err != OK) {
+		// Immediate failure (e.g., no current scene) - send error response now
+		Array msg;
+		msg.push_back(false);
+		EngineDebugger::get_singleton()->send_message("automation:scene_result", msg);
+		return;
+	}
+
+	// Scene reload is deferred - connect to scene_changed signal to send response
+	// when the scene is actually loaded and ready
+	tree->connect("scene_changed", callable_mp_static(&_on_scene_changed_send_result), CONNECT_ONE_SHOT);
 }
 
 void RemoteDebugger::_set_pause(const Variant &p_paused) {
