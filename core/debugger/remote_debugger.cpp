@@ -1278,7 +1278,7 @@ void RemoteDebugger::_change_scene(const String &p_scene_path) {
 
 	// Scene change is deferred - connect to scene_changed signal to send response
 	// when the scene is actually loaded and ready
-	tree->connect("scene_changed", callable_mp_static(_on_scene_changed_send_result), CONNECT_ONE_SHOT);
+	tree->connect("scene_changed", callable_mp_static(_on_scene_changed_send_result), Object::CONNECT_ONE_SHOT);
 }
 
 void RemoteDebugger::_reload_scene() {
@@ -1308,7 +1308,7 @@ void RemoteDebugger::_reload_scene() {
 
 	// Scene reload is deferred - connect to scene_changed signal to send response
 	// when the scene is actually loaded and ready
-	tree->connect("scene_changed", callable_mp_static(_on_scene_changed_send_result), CONNECT_ONE_SHOT);
+	tree->connect("scene_changed", callable_mp_static(_on_scene_changed_send_result), Object::CONNECT_ONE_SHOT);
 }
 
 void RemoteDebugger::_set_pause(const Variant &p_paused) {
