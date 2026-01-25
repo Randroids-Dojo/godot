@@ -18,6 +18,16 @@ Common includes that must be explicit:
 | `Ref<T>` | `#include "core/object/ref_counted.h"` |
 | `Vector`, `List`, `HashMap` | `#include "core/templates/<container>.h"` |
 
+**`callable_mp_static` syntax differs by function type:**
+```cpp
+// File-scope static functions: NO '&'
+static void my_callback() { ... }
+obj->connect("signal", callable_mp_static(my_callback));
+
+// Class static methods: USE '&'
+obj->connect("signal", callable_mp_static(&ClassName::static_method));
+```
+
 ## Automation Protocol (remote_debugger.cpp)
 
 When modifying automation commands in `core/debugger/remote_debugger.cpp`:
