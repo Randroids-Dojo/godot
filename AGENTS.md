@@ -6,6 +6,8 @@ Guidelines to avoid common mistakes when working on this codebase.
 
 **Always explicitly include headers for any types or functions you use.** Do not rely on transitive includes - they vary by platform and can cause CI failures on some builds but not others.
 
+**Includes must be alphabetically sorted.** The project uses clang-format which enforces include ordering. Run `clang-format -style=file -i <file>` before committing to fix formatting.
+
 Common includes that must be explicit:
 
 | Function/Type | Required Include |
