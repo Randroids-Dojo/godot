@@ -38,6 +38,7 @@
 #include "core/input/input.h"
 #include "core/input/input_event.h"
 #include "core/io/resource_loader.h"
+#include "core/object/callable_method_pointer.h"
 #include "core/math/expression.h"
 #include "core/object/script_language.h"
 #include "core/os/os.h"
