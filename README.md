@@ -18,7 +18,7 @@ comprehensive set of [common tools](https://godotengine.org/features), so that
 users can focus on making games without having to reinvent the wheel. Games can
 be exported with one click to a number of platforms, including the major desktop
 platforms (Linux, macOS, Windows), mobile platforms (Android, iOS), as well as
-Web-based platforms and [consoles](https://docs.godotengine.org/en/latest/tutorials/platform/consoles.html).
+Web-based platforms and [consoles](https://godotengine.org/consoles).
 
 ## Free, open source and community-driven
 
@@ -31,9 +31,8 @@ not-for-profit.
 
 Before being open sourced in [February 2014](https://github.com/godotengine/godot/commit/0b806ee0fc9097fa7bda7ac0109191c9c5e0a1ac),
 Godot had been developed by [Juan Linietsky](https://github.com/reduz) and
-[Ariel Manzur](https://github.com/punto-) (both still maintaining the project)
-for several years as an in-house engine, used to publish several work-for-hire
-titles.
+[Ariel Manzur](https://github.com/punto-) for several years as an in-house
+engine, used to publish several work-for-hire titles.
 
 ![Screenshot of a 3D scene in the Godot Engine editor](https://raw.githubusercontent.com/godotengine/godot-design/master/screenshots/editor_tps_demo_1920x1080.jpg)
 
